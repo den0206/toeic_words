@@ -8,6 +8,7 @@ const state = {
   current: null,
   filterSection: '',
   sortMode: 'sequential',
+  showPopup: true,
 };
 
 const $ = (sel) => document.querySelector(sel);
@@ -27,6 +28,34 @@ const $hint = $('#hint');
 const $enEx = $('#enExample');
 const $sectionTag = $('#sectionTag');
 const $loadError = $('#loadError');
+const $popup = $('#popup');
+const $popupSwitch = $('#popupSwitch');
+const $overlay = $('#overlay');
+
+let popupTimer = null;
+
+function setUILocked(flag) {
+  const controls = [$answer, $skip, $reset, $sectionFilter, $sortMode, $popupSwitch];
+  for (const el of controls) {
+    if (el) el.disabled = !!flag;
+  }
+}
+
+function showPopup(text) {
+  if (!state.showPopup) return;
+  const msg = (text || '').trim();
+  if (!$popup || !msg) return;
+  $popup.textContent = msg;
+  $popup.classList.add('show');
+  if ($overlay) $overlay.classList.add('show');
+  setUILocked(true);
+  if (popupTimer) clearTimeout(popupTimer);
+  popupTimer = setTimeout(() => {
+    $popup.classList.remove('show');
+    if ($overlay) $overlay.classList.remove('show');
+    setUILocked(false);
+  }, 1000);
+}
 
 function normalize(s) {
   return (s || '')
@@ -164,7 +193,11 @@ function onSubmit() {
     state.correct++;
     setFeedback('正解！', 'ok');
     updateScore();
-    setTimeout(nextCard, 450);
+    // Show popup with English example for 1s (if enabled)
+    try {
+      showPopup(state.current?.en_example || '');
+    } catch (_) {}
+    setTimeout(nextCard, 1000);
   } else {
     setFeedback('不正解…（ヒントは右の和訳にマウスオーバー）', 'ng');
     updateScore();
@@ -172,6 +205,7 @@ function onSubmit() {
 }
 
 $answer.addEventListener('keydown', (e) => {
+  if ($answer.disabled) return;
   if (e.key === 'Enter') {
     onSubmit();
   }
@@ -274,3 +308,18 @@ if ($sortMode) {
 }
 
 load();
+
+// Initialize popup switch (default ON). Persist preference in localStorage.
+try {
+  const stored = localStorage.getItem('showPopup');
+  if (stored === 'true' || stored === 'false') {
+    state.showPopup = stored === 'true';
+  }
+} catch (_) {}
+if ($popupSwitch) {
+  $popupSwitch.checked = !!state.showPopup;
+  $popupSwitch.addEventListener('change', () => {
+    state.showPopup = !!$popupSwitch.checked;
+    try { localStorage.setItem('showPopup', String(state.showPopup)); } catch (_) {}
+  });
+}

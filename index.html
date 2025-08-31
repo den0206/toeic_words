@@ -23,6 +23,14 @@
             <option value="random">ランダム</option>
           </select>
         </div>
+        <div class="row">
+          <div class="label">表示設定</div>
+          <label class="switch">
+            <input id="popupSwitch" type="checkbox" checked />
+            <span class="slider"></span>
+            <span class="switch-label">正解時に英訳ポップアップを表示</span>
+          </label>
+        </div>
         <div class="label">英語入力</div>
         <input id="answer" type="text" inputmode="latin" autocomplete="off" spellcheck="false" placeholder="英単語を入力して Enter" />
         <div id="feedback" class="feedback" aria-live="polite"></div>
@@ -46,6 +54,10 @@
         <div id="hint" class="hint wrap"></div>
       </section>
     </main>
+
+    <!-- Modal overlay and correct answer popup -->
+    <div id="overlay" class="overlay" aria-hidden="true"></div>
+    <div id="popup" class="popup" role="status" aria-live="polite" aria-atomic="true"></div>
 
     <script src="app.js"></script>
     
