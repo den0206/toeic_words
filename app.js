@@ -320,7 +320,7 @@ function onSubmit() {
     saveProgress();
     setTimeout(nextCard, 1000);
   } else {
-    setFeedback('不正解…（ヒントは右の和訳にマウスオーバー）', 'ng');
+    setFeedback('不正解…（ヒントは右の和訳にマウスオーバー、または Shift キー押下中）', 'ng');
     updateScore();
     saveProgress();
   }
