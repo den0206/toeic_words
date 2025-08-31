@@ -41,6 +41,76 @@ function setUILocked(flag) {
   }
 }
 
+// ---- Progress Persistence ----
+const PROGRESS_KEY = 'progress_v1';
+
+function clamp(n, min, max) {
+  return Math.max(min, Math.min(max, n));
+}
+
+function saveProgress() {
+  try {
+    const payload = {
+      v: 1,
+      filterSection: state.filterSection,
+      sortMode: state.sortMode,
+      order: Array.isArray(state.order) ? state.order.slice(0, 100000) : [],
+      pool: Array.isArray(state.pool) ? state.pool.slice(0, 100000) : [],
+      idx: clamp(Number(state.idx ?? -1), -1, (state.order?.length || 0) - 1),
+      attempts: clamp(Number(state.attempts || 0), 0, 1e9),
+      correct: clamp(Number(state.correct || 0), 0, 1e9),
+      total: state.data.length,
+    };
+    localStorage.setItem(PROGRESS_KEY, JSON.stringify(payload));
+  } catch (_) {}
+}
+
+function tryRestoreProgress() {
+  try {
+    const raw = localStorage.getItem(PROGRESS_KEY);
+    if (!raw) return false;
+    const p = JSON.parse(raw);
+    if (!p || p.v !== 1) return false;
+    if (!Array.isArray(p.order) || p.order.length === 0) return false;
+    const N = state.data.length;
+    const valid = (arr) => Array.isArray(arr) ? arr.filter((i) => Number.isInteger(i) && i >= 0 && i < N) : [];
+    const order = valid(p.order);
+    const pool = valid(p.pool);
+    if (!order.length) return false;
+
+    state.filterSection = typeof p.filterSection === 'string' ? p.filterSection : '';
+    state.sortMode = p.sortMode === 'random' ? 'random' : 'sequential';
+    state.order = order;
+    state.pool = pool.length ? pool : order.slice();
+    state.idx = clamp(Number(p.idx ?? -1), -1, order.length - 1);
+    state.attempts = clamp(Number(p.attempts || 0), 0, 1e9);
+    state.correct = clamp(Number(p.correct || 0), 0, state.attempts);
+
+    if ($sectionFilter) {
+      let found = false;
+      for (const opt of $sectionFilter.options) {
+        if (opt.value === state.filterSection) { found = true; break; }
+      }
+      $sectionFilter.value = found ? state.filterSection : '';
+    }
+    if ($sortMode) {
+      $sortMode.value = state.sortMode;
+    }
+
+    if (state.idx >= 0 && state.idx < state.order.length) {
+      const item = state.data[state.order[state.idx]];
+      showCard(item);
+      updateScore();
+    } else {
+      state.idx = -1;
+      nextCard();
+    }
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
 function showPopup(text) {
   if (!state.showPopup) return;
   const msg = (text || '').trim();
@@ -160,6 +230,7 @@ function showCard(item) {
   setFeedback('', '');
   $answer.value = '';
   $answer.focus();
+  saveProgress();
 }
 
 function nextCard() {
@@ -182,6 +253,7 @@ function nextCard() {
   const item = state.data[state.order[state.idx]];
   showCard(item);
   updateScore();
+  saveProgress();
 }
 
 function onSubmit() {
@@ -197,10 +269,12 @@ function onSubmit() {
     try {
       showPopup(state.current?.en_example || '');
     } catch (_) {}
+    saveProgress();
     setTimeout(nextCard, 1000);
   } else {
     setFeedback('不正解…（ヒントは右の和訳にマウスオーバー）', 'ng');
     updateScore();
+    saveProgress();
   }
 }
 
@@ -212,16 +286,17 @@ $answer.addEventListener('keydown', (e) => {
 });
 $skip.addEventListener('click', () => nextCard());
 $reset.addEventListener('click', () => {
+  if (!confirm('進行状況をリセットしますか？（保存データも消去）')) return;
+  try { localStorage.removeItem(PROGRESS_KEY); } catch (_) {}
   const source = state.pool.length
     ? state.pool
     : [...Array(state.data.length).keys()];
-  if (!source.length) return;
   state.attempts = 0;
   state.correct = 0;
-  state.order =
-    state.sortMode === 'random' ? shuffle([...source]) : [...source];
+  state.order = state.sortMode === 'random' ? shuffle([...source]) : [...source];
   state.idx = -1;
   nextCard();
+  saveProgress();
 });
 
 function rebuildOrder() {
@@ -264,6 +339,7 @@ function applySectionFilter(sectionValue) {
   state.attempts = 0;
   state.correct = 0;
   nextCard();
+  saveProgress();
 }
 
 async function load() {
@@ -274,7 +350,10 @@ async function load() {
     if (!Array.isArray(json)) throw new Error('JSON は配列ではありません');
     state.data = json.filter(Boolean);
     populateSections();
-    applySectionFilter($sectionFilter ? $sectionFilter.value : '');
+    const restored = tryRestoreProgress();
+    if (!restored) {
+      applySectionFilter($sectionFilter ? $sectionFilter.value : '');
+    }
   } catch (err) {
     console.error(err);
     $loadError.classList.remove('hidden');
@@ -304,6 +383,7 @@ if ($sortMode) {
     state.correct = 0;
     rebuildOrder();
     nextCard();
+    saveProgress();
   });
 }
 
@@ -323,3 +403,7 @@ if ($popupSwitch) {
     try { localStorage.setItem('showPopup', String(state.showPopup)); } catch (_) {}
   });
 }
+
+// Save on visibility change/unload as a safety
+window.addEventListener('pagehide', saveProgress);
+window.addEventListener('beforeunload', saveProgress);
