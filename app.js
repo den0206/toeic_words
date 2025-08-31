@@ -47,13 +47,24 @@ function escapeRegExp(s) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+function buildPhraseRegex(word) {
+  const w = (word || '').trim();
+  if (!w) return null;
+  const tokens = w.split(/\s+/).filter(Boolean).map(escapeRegExp);
+  if (!tokens.length) return null;
+  // Allow simple inflection on the last token (plural/possessive/verb endings)
+  const last = tokens.length - 1;
+  tokens[last] = `${tokens[last]}(?:'s|s|es|ed|ing)?`;
+  const joined = tokens.join('\\s+');
+  // Not surrounded by letters to avoid partial matches
+  return new RegExp(`(^|[^A-Za-z])(${joined})(?=[^A-Za-z]|$)`, 'gi');
+}
+
 function makeCloze(sentence, word) {
   const s = sentence || '';
-  const w = (word || '').trim();
-  if (!s || !w) return s;
-  const re = new RegExp(`\\b${escapeRegExp(w)}\\b`, 'gi');
-  const blank = w.replace(/[A-Za-z]/g, '_');
-  return s.replace(re, blank || '____');
+  const re = buildPhraseRegex(word);
+  if (!s || !re) return s;
+  return s.replace(re, (_, p1, matched) => p1 + matched.replace(/[A-Za-z]/g, '_'));
 }
 
 function escapeHTML(s) {
@@ -67,12 +78,25 @@ function escapeHTML(s) {
 
 function makeHighlighted(sentence, word) {
   const s = sentence || '';
-  const w = (word || '').trim();
   if (!s) return '';
-  if (!w) return escapeHTML(s);
-  const safe = escapeHTML(s);
-  const re = new RegExp(`(\\b)(${escapeRegExp(w)})(\\b)`, 'gi');
-  return safe.replace(re, '$1<span class="answer">$2</span>$3');
+  const re = buildPhraseRegex(word);
+  if (!re) return escapeHTML(s);
+  let out = '';
+  let last = 0;
+  let m;
+  while ((m = re.exec(s)) !== null) {
+    const start = m.index;
+    const full = m[0];
+    const prefix = m[1] || '';
+    const target = m[2] || '';
+    out += escapeHTML(s.slice(last, start));
+    out += escapeHTML(prefix);
+    out += `<span class="answer">${escapeHTML(target)}</span>`;
+    last = start + full.length;
+    if (re.lastIndex === m.index) re.lastIndex++;
+  }
+  out += escapeHTML(s.slice(last));
+  return out;
 }
 
 function setFeedback(text, kind) {
