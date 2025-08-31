@@ -9,6 +9,7 @@ const state = {
   filterSection: '',
   sortMode: 'sequential',
   showPopup: true,
+  showInitial: false,
 };
 
 const $ = (sel) => document.querySelector(sel);
@@ -31,6 +32,7 @@ const $loadError = $('#loadError');
 const $popup = $('#popup');
 const $popupSwitch = $('#popupSwitch');
 const $overlay = $('#overlay');
+const $initialSwitch = $('#initialSwitch');
 
 let popupTimer = null;
 
@@ -202,11 +204,20 @@ function buildPhraseRegex(word) {
   return new RegExp(`(^|[^A-Za-z])(${joined})(?=[^A-Za-z]|$)`, 'gi');
 }
 
-function makeCloze(sentence, word) {
+function maskWithInitials(text, keepInitial) {
+  if (!text) return '';
+  // Replace each letter run with initial+underscores when keepInitial, otherwise all underscores
+  return text.replace(/[A-Za-z]+/g, (w) => {
+    if (!keepInitial) return '_'.repeat(w.length);
+    return w[0] + '_'.repeat(Math.max(0, w.length - 1));
+  });
+}
+
+function makeCloze(sentence, word, keepInitial = false) {
   const s = sentence || '';
   const re = buildPhraseRegex(word);
   if (!s || !re) return s;
-  return s.replace(re, (_, p1, matched) => p1 + matched.replace(/[A-Za-z]/g, '_'));
+  return s.replace(re, (_, p1, matched) => p1 + maskWithInitials(matched, !!keepInitial));
 }
 
 function escapeHTML(s) {
@@ -266,7 +277,7 @@ function showCard(item) {
   $jaEx.textContent = item.ja_example || '';
   $hint.textContent = item.en ? `英語: ${item.en}` : '';
   // Prepare both cloze and full versions in a single element; toggle via CSS
-  const cloze = makeCloze(item.en_example || '', item.en || '');
+  const cloze = makeCloze(item.en_example || '', item.en || '', state.showInitial);
   const full = makeHighlighted(item.en_example || '', item.en || '');
   $enEx.innerHTML = `<span class="cloze">${escapeHTML(cloze)}</span><span class="full">${full}</span>`;
   if (item.section) {
@@ -449,6 +460,27 @@ if ($popupSwitch) {
   $popupSwitch.addEventListener('change', () => {
     state.showPopup = !!$popupSwitch.checked;
     try { localStorage.setItem('showPopup', String(state.showPopup)); } catch (_) {}
+  });
+}
+
+// Initialize head-initial hint switch (default OFF). Persist in localStorage.
+try {
+  const stored = localStorage.getItem('showInitial');
+  if (stored === 'true' || stored === 'false') {
+    state.showInitial = stored === 'true';
+  }
+} catch (_) {}
+if ($initialSwitch) {
+  $initialSwitch.checked = !!state.showInitial;
+  $initialSwitch.addEventListener('change', () => {
+    state.showInitial = !!$initialSwitch.checked;
+    try { localStorage.setItem('showInitial', String(state.showInitial)); } catch (_) {}
+    // Rebuild current example in place
+    if (state.current) {
+      const cloze = makeCloze(state.current.en_example || '', state.current.en || '', state.showInitial);
+      const full = makeHighlighted(state.current.en_example || '', state.current.en || '');
+      $enEx.innerHTML = `<span class="cloze">${escapeHTML(cloze)}</span><span class="full">${full}</span>`;
+    }
   });
 }
 
