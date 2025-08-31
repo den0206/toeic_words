@@ -47,6 +47,8 @@
         padding: 20px;
         min-height: 320px;
       }
+      .left .row { margin-bottom: 12px; }
+      select, .select, input, button { font-family: inherit; }
       .left .label {
         font-size: 12px;
         color: var(--muted);
@@ -64,6 +66,20 @@
         outline: none;
       }
       #answer:focus {
+        border-color: #2dd4bf;
+        box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.15);
+      }
+      #sectionFilter, #sortMode {
+        width: 100%;
+        font-size: 14px;
+        padding: 10px 12px;
+        color: var(--text);
+        background: #0b1220;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        outline: none;
+      }
+      #sectionFilter:focus, #sortMode:focus {
         border-color: #2dd4bf;
         box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.15);
       }
@@ -156,6 +172,19 @@
     <header>英単語タイピングテスト</header>
     <main class="layout">
       <section class="left">
+        <div class="row">
+          <div class="label">セクション</div>
+          <select id="sectionFilter" aria-label="セクション選択">
+            <option value="">すべてのセクション</option>
+          </select>
+        </div>
+        <div class="row">
+          <div class="label">出題順序</div>
+          <select id="sortMode" aria-label="出題順序">
+            <option value="sequential" selected>順番順</option>
+            <option value="random">ランダム</option>
+          </select>
+        </div>
         <div class="label">英語入力</div>
         <input id="answer" type="text" inputmode="latin" autocomplete="off" spellcheck="false" placeholder="英単語を入力して Enter" />
         <div id="feedback" class="feedback" aria-live="polite"></div>
@@ -165,7 +194,7 @@
         </div>
         <div class="score">
           正解 <span id="correct">0</span> / <span id="attempts">0</span>
-          <span class="subtle">（残り <span id="remaining">0</span>）</span>
+          <span class="subtle">（残り <span id="remaining">0</span> / <span id="total">0</span>）</span>
         </div>
         <div id="loadError" class="subtle hidden"></div>
       </section>
@@ -182,21 +211,27 @@
     <script>
       const state = {
         data: [],
+        pool: [], // filtered indexes by section
         order: [],
         idx: -1,
         attempts: 0,
         correct: 0,
         current: null,
+        filterSection: '',
+        sortMode: 'sequential',
       };
 
       const $ = (sel) => document.querySelector(sel);
       const $answer = $('#answer');
       const $feedback = $('#feedback');
+      const $sectionFilter = $('#sectionFilter');
+      const $sortMode = $('#sortMode');
       const $skip = $('#skipBtn');
       const $reset = $('#resetBtn');
       const $correct = $('#correct');
       const $attempts = $('#attempts');
       const $remaining = $('#remaining');
+      const $total = $('#total');
       const $ja = $('#ja');
       const $jaEx = $('#jaExample');
       const $hint = $('#hint');
@@ -228,6 +263,7 @@
         $attempts.textContent = String(state.attempts);
         const remaining = Math.max(0, state.order.length - (state.idx + 1));
         $remaining.textContent = String(remaining);
+        if ($total) $total.textContent = String(state.pool.length || state.data.length || 0);
       }
 
       function showCard(item) {
@@ -247,11 +283,20 @@
       }
 
       function nextCard() {
-        if (!state.order.length) return;
+        if (!state.order.length) {
+          $ja.textContent = '選択したセクションに該当する単語がありません。';
+          $jaEx.textContent = '';
+          $hint.textContent = '';
+          setFeedback('', '');
+          updateScore();
+          return;
+        }
         state.idx++;
         if (state.idx >= state.order.length) {
           state.idx = 0;
-          state.order = shuffle(state.order);
+          if (state.sortMode === 'random') {
+            state.order = shuffle(state.order);
+          }
         }
         const item = state.data[state.order[state.idx]];
         showCard(item);
@@ -281,13 +326,55 @@
       });
       $skip.addEventListener('click', () => nextCard());
       $reset.addEventListener('click', () => {
-        if (!state.data.length) return;
+        const source = state.pool.length ? state.pool : [...Array(state.data.length).keys()];
+        if (!source.length) return;
         state.attempts = 0;
         state.correct = 0;
-        state.order = shuffle([...Array(state.data.length).keys()]);
+        state.order = state.sortMode === 'random' ? shuffle([...source]) : [...source];
         state.idx = -1;
         nextCard();
       });
+
+      function rebuildOrder() {
+        const source = state.pool.length ? state.pool : [];
+        state.order = state.sortMode === 'random' ? shuffle([...source]) : [...source];
+        state.idx = -1;
+      }
+
+      function populateSections() {
+        const sections = new Set();
+        for (const it of state.data) {
+          if (it && typeof it.section === 'string' && it.section.trim()) {
+            sections.add(it.section.trim());
+          }
+        }
+        const sorted = Array.from(sections).sort((a, b) => a.localeCompare(b, 'ja'));
+        while ($sectionFilter.options.length > 1) $sectionFilter.remove(1);
+        for (const s of sorted) {
+          const opt = document.createElement('option');
+          opt.value = s;
+          opt.textContent = s;
+          $sectionFilter.appendChild(opt);
+        }
+      }
+
+      function applySectionFilter(sectionValue) {
+        state.filterSection = sectionValue || '';
+        const pool = [];
+        for (let i = 0; i < state.data.length; i++) {
+          const it = state.data[i];
+          if (!state.filterSection) {
+            pool.push(i);
+          } else if ((it?.section || '').trim() === state.filterSection) {
+            pool.push(i);
+          }
+        }
+        state.pool = pool;
+        rebuildOrder();
+        state.attempts = 0;
+        state.correct = 0;
+        nextCard();
+      }
 
       async function load() {
         try {
@@ -296,8 +383,8 @@
           const json = await res.json();
           if (!Array.isArray(json)) throw new Error('JSON は配列ではありません');
           state.data = json.filter(Boolean);
-          state.order = shuffle([...Array(state.data.length).keys()]);
-          nextCard();
+          populateSections();
+          applySectionFilter($sectionFilter ? $sectionFilter.value : '');
         } catch (err) {
           console.error(err);
           $loadError.classList.remove('hidden');
@@ -306,8 +393,27 @@
         }
       }
 
+      if ($sortMode) {
+        $sortMode.value = state.sortMode;
+      }
+
+      if ($sectionFilter) {
+        $sectionFilter.addEventListener('change', () => {
+          applySectionFilter($sectionFilter.value);
+        });
+      }
+
+      if ($sortMode) {
+        $sortMode.addEventListener('change', () => {
+          state.sortMode = $sortMode.value === 'sequential' ? 'sequential' : 'random';
+          state.attempts = 0;
+          state.correct = 0;
+          rebuildOrder();
+          nextCard();
+        });
+      }
+
       load();
     </script>
   </body>
   </html>
-
