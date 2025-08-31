@@ -121,6 +121,22 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   line-height: 1.6;
   margin-bottom: 6px;
 }
+.right .en-example {
+  font-size: 16px;
+  color: #a7f3d0;
+  line-height: 1.6;
+  margin-bottom: 8px;
+}
+/* Inside one element: toggle between cloze and full on hover of .ja */
+.right .en-example .cloze { display: block; }
+.right .en-example .full { display: none; }
+.right .ja:hover ~ .en-example .cloze { display: none; }
+.right .ja:hover ~ .en-example .full { display: block; }
+.right .en-example .answer {
+  color: #fde68a;
+  font-weight: 600;
+  text-decoration: underline dotted;
+}
 .right .hint {
   display: none;
   margin-top: 6px;

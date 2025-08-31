@@ -24,6 +24,7 @@ const $total = $('#total');
 const $ja = $('#ja');
 const $jaEx = $('#jaExample');
 const $hint = $('#hint');
+const $enEx = $('#enExample');
 const $sectionTag = $('#sectionTag');
 const $loadError = $('#loadError');
 
@@ -42,6 +43,38 @@ function shuffle(arr) {
   return arr;
 }
 
+function escapeRegExp(s) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function makeCloze(sentence, word) {
+  const s = sentence || '';
+  const w = (word || '').trim();
+  if (!s || !w) return s;
+  const re = new RegExp(`\\b${escapeRegExp(w)}\\b`, 'gi');
+  const blank = w.replace(/[A-Za-z]/g, '_');
+  return s.replace(re, blank || '____');
+}
+
+function escapeHTML(s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function makeHighlighted(sentence, word) {
+  const s = sentence || '';
+  const w = (word || '').trim();
+  if (!s) return '';
+  if (!w) return escapeHTML(s);
+  const safe = escapeHTML(s);
+  const re = new RegExp(`(\\b)(${escapeRegExp(w)})(\\b)`, 'gi');
+  return safe.replace(re, '$1<span class="answer">$2</span>$3');
+}
+
 function setFeedback(text, kind) {
   $feedback.textContent = text || '';
   $feedback.className = 'feedback' + (kind ? ' ' + kind : '');
@@ -52,7 +85,8 @@ function updateScore() {
   $attempts.textContent = String(state.attempts);
   const remaining = Math.max(0, state.order.length - (state.idx + 1));
   $remaining.textContent = String(remaining);
-  if ($total) $total.textContent = String(state.pool.length || state.data.length || 0);
+  if ($total)
+    $total.textContent = String(state.pool.length || state.data.length || 0);
 }
 
 function showCard(item) {
@@ -60,6 +94,10 @@ function showCard(item) {
   $ja.textContent = item.ja || '';
   $jaEx.textContent = item.ja_example || '';
   $hint.textContent = item.en ? `英語: ${item.en}` : '';
+  // Prepare both cloze and full versions in a single element; toggle via CSS
+  const cloze = makeCloze(item.en_example || '', item.en || '');
+  const full = makeHighlighted(item.en_example || '', item.en || '');
+  $enEx.innerHTML = `<span class="cloze">${escapeHTML(cloze)}</span><span class="full">${full}</span>`;
   if (item.section) {
     $sectionTag.textContent = item.section;
     $sectionTag.classList.remove('hidden');
@@ -76,6 +114,7 @@ function nextCard() {
     $ja.textContent = '選択したセクションに該当する単語がありません。';
     $jaEx.textContent = '';
     $hint.textContent = '';
+    $enEx.innerHTML = '';
     setFeedback('', '');
     updateScore();
     return;
@@ -115,18 +154,22 @@ $answer.addEventListener('keydown', (e) => {
 });
 $skip.addEventListener('click', () => nextCard());
 $reset.addEventListener('click', () => {
-  const source = state.pool.length ? state.pool : [...Array(state.data.length).keys()];
+  const source = state.pool.length
+    ? state.pool
+    : [...Array(state.data.length).keys()];
   if (!source.length) return;
   state.attempts = 0;
   state.correct = 0;
-  state.order = state.sortMode === 'random' ? shuffle([...source]) : [...source];
+  state.order =
+    state.sortMode === 'random' ? shuffle([...source]) : [...source];
   state.idx = -1;
   nextCard();
 });
 
 function rebuildOrder() {
   const source = state.pool.length ? state.pool : [];
-  state.order = state.sortMode === 'random' ? shuffle([...source]) : [...source];
+  state.order =
+    state.sortMode === 'random' ? shuffle([...source]) : [...source];
   state.idx = -1;
 }
 
@@ -167,7 +210,7 @@ function applySectionFilter(sectionValue) {
 
 async function load() {
   try {
-    const res = await fetch('words/english_words.json', { cache: 'no-cache' });
+    const res = await fetch('words/english_words.json', {cache: 'no-cache'});
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const json = await res.json();
     if (!Array.isArray(json)) throw new Error('JSON は配列ではありません');
@@ -177,8 +220,12 @@ async function load() {
   } catch (err) {
     console.error(err);
     $loadError.classList.remove('hidden');
-    $loadError.textContent = 'データ読み込みに失敗しました。ローカルサーバで開いてください（例: `npx serve` や VS Code Live Server）。';
+    $loadError.textContent =
+      'データ読み込みに失敗しました。ローカルサーバで開いてください（例: `npx serve` や VS Code Live Server）。';
     $ja.textContent = 'words/english_words.json を取得できませんでした。';
+    $jaEx.textContent = '';
+    $enEx.innerHTML = '';
+    $hint.textContent = '';
   }
 }
 
@@ -203,4 +250,3 @@ if ($sortMode) {
 }
 
 load();
-
