@@ -52,6 +52,9 @@ toeic_words/
 ├── index.html              # メインアプリケーション
 ├── styles.css              # スタイルシート
 ├── app.js                  # アプリケーションロジック
+├── .github/
+│   └── workflows/
+│       └── pages.yml       # GitHub Pages 自動デプロイ
 ├── words/
 │   ├── english_words.json  # 単語データ（JSON形式）
 │   └── english_words.tsv   # 単語データ（TSV形式）
@@ -98,3 +101,9 @@ toeic_words/
   - A. はい。y→ies/ied、e脱落、子音重ね、ie→ying など代表的な変化を考慮して穴埋めします（不規則変化は対象外）。
 - Q. ポップアップが邪魔です。
   - A. 左カラム「表示設定」のスイッチで無効化できます。
+## GitHub Pages へのデプロイ（自動）
+
+- main ブランチが更新されると、自動で GitHub Pages にデプロイされます。
+- `.github/workflows/pages.yml` を同梱しています。初回は GitHub の repo Settings → Pages で Source を "GitHub Actions" にして有効化してください。
+
+注意: GitHub Pages は標準で認証機能を提供していません。公開範囲を制限したい場合は Cloudflare Access などの外部サービスを併用してください。
