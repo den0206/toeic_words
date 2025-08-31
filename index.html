@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>英単語タイピングテスト</title>
+    <style>
+      :root {
+        --bg: #0f172a;
+        --panel: #111827;
+        --text: #e5e7eb;
+        --muted: #9ca3af;
+        --accent: #22c55e;
+        --danger: #ef4444;
+        --border: #1f2937;
+        --hover: #374151;
+      }
+      * { box-sizing: border-box; }
+      html, body { height: 100%; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto,
+          Noto Sans, Ubuntu, Cantarell, Helvetica Neue, Arial, "Apple Color Emoji",
+          "Segoe UI Emoji";
+      }
+      header {
+        padding: 16px 20px;
+        border-bottom: 1px solid var(--border);
+        background: #0b1220;
+        font-weight: 600;
+        letter-spacing: 0.2px;
+      }
+      main.layout {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+        padding: 16px;
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+      section.left, section.right {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 20px;
+        min-height: 320px;
+      }
+      .left .label {
+        font-size: 12px;
+        color: var(--muted);
+        margin-bottom: 8px;
+      }
+      #answer {
+        width: 100%;
+        font-size: 22px;
+        line-height: 1.4;
+        padding: 14px 16px;
+        color: var(--text);
+        background: #0b1220;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        outline: none;
+      }
+      #answer:focus {
+        border-color: #2dd4bf;
+        box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.15);
+      }
+      .feedback {
+        height: 28px;
+        margin-top: 8px;
+        font-weight: 600;
+      }
+      .feedback.ok { color: var(--accent); }
+      .feedback.ng { color: var(--danger); }
+      .controls {
+        margin-top: 10px;
+        display: flex;
+        gap: 8px;
+      }
+      button {
+        padding: 10px 14px;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        background: #0b1220;
+        color: var(--text);
+        cursor: pointer;
+      }
+      button:hover { background: var(--hover); }
+      button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+      .score {
+        margin-top: 12px;
+        color: var(--muted);
+        font-size: 14px;
+      }
+
+      .right .title {
+        font-size: 12px;
+        color: var(--muted);
+        margin-bottom: 6px;
+      }
+      .right .ja {
+        font-size: 22px;
+        line-height: 1.4;
+        margin-bottom: 12px;
+      }
+      .right .ja-example {
+        font-size: 18px;
+        color: #d1d5db;
+        line-height: 1.6;
+        margin-bottom: 6px;
+      }
+      .right .hint {
+        display: none;
+        margin-top: 6px;
+        padding-top: 8px;
+        border-top: 1px dashed var(--border);
+        color: #c4b5fd;
+      }
+      /* Show English only while hovering the Japanese translation (.ja) */
+      .right .ja:hover ~ .hint { display: block; }
+
+      .subtle {
+        font-size: 12px;
+        color: var(--muted);
+        margin-top: 6px;
+      }
+      .section-tag {
+        display: inline-block;
+        font-size: 12px;
+        color: #93c5fd;
+        background: #0b1220;
+        border: 1px solid var(--border);
+        padding: 4px 8px;
+        border-radius: 999px;
+        margin-bottom: 10px;
+      }
+      .wrap { white-space: pre-wrap; }
+      .hidden { display: none !important; }
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <header>英単語タイピングテスト</header>
+    <main class="layout">
+      <section class="left">
+        <div class="label">英語入力</div>
+        <input id="answer" type="text" inputmode="latin" autocomplete="off" spellcheck="false" placeholder="英単語を入力して Enter" />
+        <div id="feedback" class="feedback" aria-live="polite"></div>
+        <div class="controls">
+          <button id="skipBtn" type="button">スキップ</button>
+          <button id="resetBtn" type="button" title="進行状況をリセット">リセット</button>
+        </div>
+        <div class="score">
+          正解 <span id="correct">0</span> / <span id="attempts">0</span>
+          <span class="subtle">（残り <span id="remaining">0</span>）</span>
+        </div>
+        <div id="loadError" class="subtle hidden"></div>
+      </section>
+
+      <section class="right">
+        <div class="title">問題</div>
+        <div id="sectionTag" class="section-tag hidden"></div>
+        <div id="ja" class="ja wrap">読み込み中...</div>
+        <div id="jaExample" class="ja-example wrap"></div>
+        <div id="hint" class="hint wrap"></div>
+      </section>
+    </main>
+
+    <script>
+      const state = {
+        data: [],
+        order: [],
+        idx: -1,
+        attempts: 0,
+        correct: 0,
+        current: null,
+      };
+
+      const $ = (sel) => document.querySelector(sel);
+      const $answer = $('#answer');
+      const $feedback = $('#feedback');
+      const $skip = $('#skipBtn');
+      const $reset = $('#resetBtn');
+      const $correct = $('#correct');
+      const $attempts = $('#attempts');
+      const $remaining = $('#remaining');
+      const $ja = $('#ja');
+      const $jaEx = $('#jaExample');
+      const $hint = $('#hint');
+      const $sectionTag = $('#sectionTag');
+      const $loadError = $('#loadError');
+
+      function normalize(s) {
+        return (s || '')
+          .toLowerCase()
+          .replace(/\s+/g, ' ')
+          .replace(/^\s+|\s+$/g, '');
+      }
+
+      function shuffle(arr) {
+        for (let i = arr.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [arr[i], arr[j]] = [arr[j], arr[i]];
+        }
+        return arr;
+      }
+
+      function setFeedback(text, kind) {
+        $feedback.textContent = text || '';
+        $feedback.className = 'feedback' + (kind ? ' ' + kind : '');
+      }
+
+      function updateScore() {
+        $correct.textContent = String(state.correct);
+        $attempts.textContent = String(state.attempts);
+        const remaining = Math.max(0, state.order.length - (state.idx + 1));
+        $remaining.textContent = String(remaining);
+      }
+
+      function showCard(item) {
+        state.current = item;
+        $ja.textContent = item.ja || '';
+        $jaEx.textContent = item.ja_example || '';
+        $hint.textContent = item.en ? `英語: ${item.en}` : '';
+        if (item.section) {
+          $sectionTag.textContent = item.section;
+          $sectionTag.classList.remove('hidden');
+        } else {
+          $sectionTag.classList.add('hidden');
+        }
+        setFeedback('', '');
+        $answer.value = '';
+        $answer.focus();
+      }
+
+      function nextCard() {
+        if (!state.order.length) return;
+        state.idx++;
+        if (state.idx >= state.order.length) {
+          state.idx = 0;
+          state.order = shuffle(state.order);
+        }
+        const item = state.data[state.order[state.idx]];
+        showCard(item);
+        updateScore();
+      }
+
+      function onSubmit() {
+        const input = normalize($answer.value);
+        const target = normalize(state.current?.en || '');
+        if (!input) return;
+        state.attempts++;
+        if (input === target) {
+          state.correct++;
+          setFeedback('正解！', 'ok');
+          updateScore();
+          setTimeout(nextCard, 450);
+        } else {
+          setFeedback('不正解…（ヒントは右の和訳にマウスオーバー）', 'ng');
+          updateScore();
+        }
+      }
+
+      $answer.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          onSubmit();
+        }
+      });
+      $skip.addEventListener('click', () => nextCard());
+      $reset.addEventListener('click', () => {
+        if (!state.data.length) return;
+        state.attempts = 0;
+        state.correct = 0;
+        state.order = shuffle([...Array(state.data.length).keys()]);
+        state.idx = -1;
+        nextCard();
+      });
+
+      async function load() {
+        try {
+          const res = await fetch('words/english_words.json', { cache: 'no-cache' });
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          const json = await res.json();
+          if (!Array.isArray(json)) throw new Error('JSON は配列ではありません');
+          state.data = json.filter(Boolean);
+          state.order = shuffle([...Array(state.data.length).keys()]);
+          nextCard();
+        } catch (err) {
+          console.error(err);
+          $loadError.classList.remove('hidden');
+          $loadError.textContent = 'データ読み込みに失敗しました。ローカルサーバで開いてください（例: `npx serve` や VS Code Live Server）。';
+          $ja.textContent = 'words/english_words.json を取得できませんでした。';
+        }
+      }
+
+      load();
+    </script>
+  </body>
+  </html>
+
