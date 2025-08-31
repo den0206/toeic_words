@@ -257,6 +257,11 @@ function updateScore() {
 
 function showCard(item) {
   state.current = item;
+  const $right = document.querySelector('section.right');
+  if ($right) {
+    $right.classList.remove('show-full');
+    $right.classList.remove('show-hint');
+  }
   $ja.textContent = item.ja || '';
   $jaEx.textContent = item.ja_example || '';
   $hint.textContent = item.en ? `英語: ${item.en}` : '';
@@ -450,3 +455,39 @@ if ($popupSwitch) {
 // Save on visibility change/unload as a safety
 window.addEventListener('pagehide', saveProgress);
 window.addEventListener('beforeunload', saveProgress);
+
+// UI: reveal full English example while hovering Japanese (mouse) or touching (mobile)
+(function setupExampleReveal() {
+  const $ja = document.querySelector('#ja');
+  const $right = document.querySelector('section.right');
+  if (!$ja || !$right) return;
+  const show = () => $right.classList.add('show-full');
+  const hide = () => $right.classList.remove('show-full');
+  $ja.addEventListener('mouseenter', show);
+  $ja.addEventListener('mouseleave', hide);
+  const isTouch = 'ontouchstart' in window || (navigator && navigator.maxTouchPoints > 0);
+  if (isTouch) {
+    $ja.addEventListener('touchstart', show, { passive: true });
+    $ja.addEventListener('touchend', hide);
+    $ja.addEventListener('touchcancel', hide);
+  }
+  $right.addEventListener('mouseleave', hide);
+})();
+
+// UI: while holding Shift key, temporarily show hint
+(function setupHintWhileShift() {
+  const $right = document.querySelector('section.right');
+  if (!$right) return;
+  const add = () => $right.classList.add('show-hint');
+  const remove = () => $right.classList.remove('show-hint');
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Shift' || e.shiftKey) add();
+  });
+  document.addEventListener('keyup', (e) => {
+    if (e.key === 'Shift' || !e.shiftKey) remove();
+  });
+  window.addEventListener('blur', remove);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'visible') remove();
+  });
+})();

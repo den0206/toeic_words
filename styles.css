@@ -147,6 +147,12 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 /* Show English only while hovering the Japanese translation (.ja) */
 .right .ja:hover ~ .hint { display: block; }
 
+/* Also show hint while Shift key is pressed (JS toggles class) */
+.right.show-hint .hint { display: block !important; }
+/* While Shift is pressed, also reveal full English example */
+.right.show-hint .en-example .cloze { display: none !important; }
+.right.show-hint .en-example .full { display: block !important; }
+
 .subtle {
   font-size: 12px;
   color: var(--muted);
