@@ -657,10 +657,10 @@
     "sound_ja": "01-146.mp3"
   },
   {
-    "en": "r?sum?",
+    "en": "resume",
     "ja": "履歴書",
     "ja_example": "履歴書を送る",
-    "en_example": "send a r?sum?",
+    "en_example": "send a resume",
     "section": "TOEIC L＆R TEST 出る単特急　金のフレーズ::600点レベル 助走の400語 (001-100)",
     "sound_en": "01-147.mp3",
     "sound_ja": "01-148.mp3"
@@ -714,7 +714,7 @@
     "en": "enclose",
     "ja": "同封する",
     "ja_example": "履歴書を同封いたします。",
-    "en_example": "My r?sum? is enclosed.",
+    "en_example": "My resume is enclosed.",
     "section": "TOEIC L＆R TEST 出る単特急　金のフレーズ::600点レベル 助走の400語 (001-100)",
     "sound_en": "01-159.mp3",
     "sound_ja": "01-160.mp3"
@@ -2010,7 +2010,7 @@
     "en": "attach",
     "ja": "添付する",
     "ja_example": "履歴書を添付しました。",
-    "en_example": "I have attached my r?sum?.",
+    "en_example": "I have attached my resume.",
     "section": "TOEIC L＆R TEST 出る単特急　金のフレーズ::600点レベル 助走の400語 (201-300)",
     "sound_en": "03-47.mp3",
     "sound_ja": "03-48.mp3"
@@ -4295,7 +4295,7 @@
   {
     "en": "specify",
     "ja": "明確に述べる",
-    "ja_example": "規則には?とはっきり記されている",
+    "ja_example": "規則にはとはっきり記されている",
     "en_example": "the regulations clearly specify that",
     "section": "TOEIC L＆R TEST 出る単特急　金のフレーズ::730点レベル 加速の300語 (401-500)",
     "sound_en": "07-155.mp3",
@@ -4421,7 +4421,7 @@
   {
     "en": "predict",
     "ja": "予測する",
-    "ja_example": "数名の専門家は?と予測している",
+    "ja_example": "数名の専門家はと予測している",
     "en_example": "some experts predict that",
     "section": "TOEIC L＆R TEST 出る単特急　金のフレーズ::730点レベル 加速の300語 (401-500)",
     "sound_en": "07-183.mp3",
