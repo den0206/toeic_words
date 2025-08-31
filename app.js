@@ -146,16 +146,59 @@ function escapeRegExp(s) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+function lastTokenInflectionPattern(raw) {
+  const base = raw || '';
+  const esc = escapeRegExp(base);
+  if (!base) return '';
+  const alts = new Set();
+  const last = base.slice(-1);
+  const prev = base.slice(-2, -1);
+  const vowels = 'aeiouAEIOU';
+  const lastEsc = escapeRegExp(last);
+  const pre = base.slice(0, -1);
+
+  // Exact
+  alts.add(esc);
+  // Possessive
+  alts.add(esc + "'s");
+  // Plural/3rd person
+  alts.add(esc + 's');
+  alts.add(esc + 'es');
+  // -y endings (consonant + y)
+  const isConsY = last.toLowerCase() === 'y' && (!prev || !vowels.includes(prev));
+  if (isConsY) {
+    alts.add(escapeRegExp(base.slice(0, -1)) + 'ies');
+    alts.add(escapeRegExp(base.slice(0, -1)) + 'ied');
+  }
+  // -ed forms
+  alts.add(esc + 'ed');
+  if (last.toLowerCase() === 'e') {
+    alts.add(esc + 'd');
+  }
+  // -ing forms
+  alts.add(esc + 'ing');
+  if (base.toLowerCase().endsWith('ie')) {
+    alts.add(escapeRegExp(base.slice(0, -2)) + 'ying'); // lie -> lying
+  } else if (last.toLowerCase() === 'e') {
+    alts.add(escapeRegExp(base.slice(0, -1)) + 'ing'); // make -> making
+  }
+  // Double final consonant heuristic for short words (plan -> planned/planning)
+  const consonants = 'bcdfghjklmnpqrstvwxyzBCDFGHJKLMNPQRSTVWXYZ';
+  if (consonants.includes(last)) {
+    alts.add(esc + lastEsc + 'ed');
+    alts.add(esc + lastEsc + 'ing');
+  }
+
+  return '(?:' + Array.from(alts).join('|') + ')';
+}
+
 function buildPhraseRegex(word) {
   const w = (word || '').trim();
   if (!w) return null;
-  const tokens = w.split(/\s+/).filter(Boolean).map(escapeRegExp);
+  const tokens = w.split(/\s+/).filter(Boolean);
   if (!tokens.length) return null;
-  // Allow simple inflection on the last token (plural/possessive/verb endings)
-  const last = tokens.length - 1;
-  tokens[last] = `${tokens[last]}(?:'s|s|es|ed|ing)?`;
-  const joined = tokens.join('\\s+');
-  // Not surrounded by letters to avoid partial matches
+  const parts = tokens.map((t, i) => (i === tokens.length - 1 ? lastTokenInflectionPattern(t) : escapeRegExp(t)));
+  const joined = parts.join('\\s+');
   return new RegExp(`(^|[^A-Za-z])(${joined})(?=[^A-Za-z]|$)`, 'gi');
 }
 
